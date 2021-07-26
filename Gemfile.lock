@@ -1,0 +1,19 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    base64 (0.1.0)
+    ffi (1.15.3)
+    openssl (2.2.0)
+    rbnacl (7.1.1)
+      ffi
+
+PLATFORMS
+  arm64-darwin-20
+
+DEPENDENCIES
+  base64
+  openssl
+  rbnacl
+
+BUNDLED WITH
+   2.2.3
