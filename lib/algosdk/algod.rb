@@ -31,12 +31,18 @@ module AlgoSDK
     end
 
     def algod_request(method, requrl, params = nil, data = nil, headers = nil, raw_response = false)
+      final_headers_for_req = Hash.new
+
       if !@headers.empty?
         # if the headers are not empty
-        p @headers
-      else
-        # if headers are empty
-        p "NAW"
+        final_headers_for_req = final_headers_for_req.merge(@headers)
+        p final_headers_for_req
+      end
+
+      if headers
+        p headers
+        final_headers_for_req = final_headers_for_req.merge(headers)
+        p final_headers_for_req
       end
     end
   end
@@ -48,4 +54,4 @@ pk = account_data.shift
 raise "Encoding working incorrectly" unless pk = address_from_pk(pk)
 
 @algo = AlgoSDK::AlgodClient.new("algod_token", "algod_address", { :hi => "This is message" })
-@algo.algod_request("GET", "accounts/address/", {}, addr, "headers", true)
+@algo.algod_request("GET", "accounts/address/", {}, addr, { :msg => "headers" }, true)
