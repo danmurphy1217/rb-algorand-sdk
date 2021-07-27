@@ -3,6 +3,7 @@ GEM
   specs:
     base64 (0.1.0)
     ffi (1.15.3)
+    json (2.5.1)
     openssl (2.2.0)
     rbnacl (7.1.1)
       ffi
@@ -12,6 +13,7 @@ PLATFORMS
 
 DEPENDENCIES
   base64
+  json
   openssl
   rbnacl
 
