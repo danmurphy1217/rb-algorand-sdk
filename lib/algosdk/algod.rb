@@ -30,20 +30,51 @@ module AlgoSDK
       @headers = headers
     end
 
+    def self.build_req(method, uri_obj, req_data, headers)
+      Net::HTTP.start(uri_obj.host, uri_obj.port) do |http|
+        if method == "GET"
+          request = Net::HTTP::Get.new(uri_obj, headers)
+        elsif method == "POST"
+          request = Net::HTTP::Post.new(uri_obj, headers)
+        end
+
+        response = http.request request # Net::HTTPResponse object
+
+        JSON.parse(response.body)
+      end
+    end
+
     def algod_request(method, requrl, params = nil, data = nil, headers = nil, raw_response = false)
       final_headers_for_req = Hash.new
 
       if !@headers.empty?
         # if the headers are not empty
         final_headers_for_req = final_headers_for_req.merge(@headers)
-        p final_headers_for_req
       end
 
       if headers
-        p headers
         final_headers_for_req = final_headers_for_req.merge(headers)
-        p final_headers_for_req
       end
+
+      if not Constants::NO_AUTH.include?(requrl)
+        final_headers_for_req = final_headers_for_req.merge({
+          Constants::ALGOD_AUTH_HEADER => @algod_token,
+        })
+      end
+
+      if !Constants::UNVERSIONED_PATHS.include?(requrl)
+        # requrl should be versioned appropriately
+        requrl = API_VERSION + requrl
+      end
+
+      uri = URI(@algod_address + requrl)
+
+      if params
+        uri.query = URI.encode_www_form(params)
+      end
+
+      request = self.class.build_req(method, uri, data, final_headers_for_req)
+      p request
     end
   end
 end
@@ -53,5 +84,6 @@ addr = account_data.shift
 pk = account_data.shift
 raise "Encoding working incorrectly" unless pk = address_from_pk(pk)
 
-@algo = AlgoSDK::AlgodClient.new("algod_token", "algod_address", { :hi => "This is message" })
-@algo.algod_request("GET", "accounts/address/", {}, addr, { :msg => "headers" }, true)
+@algo = AlgoSDK::AlgodClient.new("1e506580e964a022db4a5eb64e561240718afa6bd65e9ef1d5a2f72fe62f3775", "http://127.0.0.1:8080", { :hi => "This is message" })
+@algo.algod_request("GET", "/status")
+@algo.algod_request("GET", "/accounts/MXIGC5RCUFNFV2TB7ODAGQ4H7VC75DCH2SBBG7ATWPLB4YHBO7FFPNVLJ4")
