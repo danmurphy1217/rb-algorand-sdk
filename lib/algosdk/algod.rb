@@ -1,6 +1,7 @@
 require_relative "error"
 require_relative "encoding"
 require_relative "utils/constants"
+require_relative "utils/utils"
 require_relative "transaction"
 require_relative "account"
 
@@ -73,8 +74,40 @@ module AlgoSDK
         uri.query = URI.encode_www_form(params)
       end
 
-      request = self.class.build_req(method, uri, data, final_headers_for_req)
-      p request
+      begin
+        request = self.class.build_req(method, uri, data, final_headers_for_req)
+      rescue
+        raise AlgoSDK::Errors::AlgodRequestError.new(@algod_address + requrl)
+      end
+      request
+    end
+
+    def status(**kwargs)
+      "" "Return node status." ""
+      req = "/status"
+      algod_request("GET", req, **kwargs)
+    end
+
+    def health(**kwargs)
+      "" "Return null if the node is running." ""
+      req = "/health"
+      algod_request("GET", req, **kwargs)
+    end
+
+    def status_after_block(block_num = nil, round_num = nil, **kwargs)
+      "" "
+      Return node status immediately after blockNum.
+      Args:
+          block_num (int, optional): block number
+          round_num (int, optional): alias for block_num; specify one of
+              these
+      " ""
+      if block_num.nil? and round_num.nil?
+        raise AlgoSDK::Errors::ArgsError.new("Invalid input, either `block_nun` or `round_num` is required")
+      end
+
+      req = "/status/wait-for-block-after/" + Utils::stringify_round_info(block_num, round_num)
+      algod_request("GET", req, **kwargs)
     end
   end
 end
@@ -85,5 +118,6 @@ pk = account_data.shift
 raise "Encoding working incorrectly" unless pk = address_from_pk(pk)
 
 @algo = AlgoSDK::AlgodClient.new("1e506580e964a022db4a5eb64e561240718afa6bd65e9ef1d5a2f72fe62f3775", "http://127.0.0.1:8080", { :hi => "This is message" })
-@algo.algod_request("GET", "/status")
-@algo.algod_request("GET", "/accounts/MXIGC5RCUFNFV2TB7ODAGQ4H7VC75DCH2SBBG7ATWPLB4YHBO7FFPNVLJ4")
+# @algo.algod_request("GET", "/status")
+# @algo.algod_request("GET", "/accounts/MXIGC5RCUFNFV2TB7ODAGQ4H7VC75DCH2SBBG7ATWPLB4YHBO7FFPNVLJ4")
+p @algo.status_after_block()
