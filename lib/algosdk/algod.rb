@@ -109,6 +109,30 @@ module AlgoSDK
       req = "/status/wait-for-block-after/" + Utils::stringify_round_info(block_num, round_num)
       algod_request("GET", req, **kwargs)
     end
+
+    def pending_transactions(max_transactions, **kwargs)
+      "" "
+      Return pending transactions.
+      Args:
+          max_txns (int): maximum number of transactions to return;
+              if max_txns is 0, return all pending transactions
+      " ""
+      query = { "max": max_transactions }
+      req = "/transactions/pending"
+      algod_request("GET", req, params = query, **kwargs)
+    end
+
+    def versions(**kwargs)
+      "" "Return algod versions." ""
+      req = "/versions"
+      return algod_request("GET", req, **kwargs)
+    end
+
+    def ledger_supply(**kwargs)
+      "" "Return supply details for node's ledger." ""
+      req = "/ledger/supply"
+      return algod_request("GET", req, **kwargs)
+    end
   end
 end
 
@@ -120,4 +144,7 @@ raise "Encoding working incorrectly" unless pk = address_from_pk(pk)
 @algo = AlgoSDK::AlgodClient.new("1e506580e964a022db4a5eb64e561240718afa6bd65e9ef1d5a2f72fe62f3775", "http://127.0.0.1:8080", { :hi => "This is message" })
 # @algo.algod_request("GET", "/status")
 # @algo.algod_request("GET", "/accounts/MXIGC5RCUFNFV2TB7ODAGQ4H7VC75DCH2SBBG7ATWPLB4YHBO7FFPNVLJ4")
-p @algo.status_after_block()
+# p @algo.status_after_block(1000)
+# p @algo.pending_transactions(1)
+# p @algo.versions()
+# p @algo.ledger_supply()
