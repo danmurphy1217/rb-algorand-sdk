@@ -1,3 +1,4 @@
+# typed: true
 require "rbnacl"
 require "base64"
 require "openssl"
@@ -13,9 +14,7 @@ def generate_account()
   address = checksum(verify_key.to_bytes)
   encoded_address = Base64.encode64(address)
   private_key = Base64.encode64(verify_key.to_bytes + signing_key.to_bytes)
-  # TODO: use private key to compute address
-  #! https://github.com/algorand/py-algorand-sdk/blob/develop/algosdk/account.py
-  p encoded_address, private_key
+  return encoded_address, private_key
 end
 
 def address_from_pk(pk)
@@ -23,10 +22,5 @@ def address_from_pk(pk)
   # given the private key, derive the public address
   private_key = Base64.decode64(pk)[0...Constants::KEY_LEN_BYTES]
   address = checksum(private_key)
-  p Base64.encode64(address)
+  return Base64.encode64(address)
 end
-
-account_data = generate_account()
-addr = account_data.shift
-pk = account_data.shift
-address_from_pk(pk)
