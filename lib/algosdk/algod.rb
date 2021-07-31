@@ -34,7 +34,7 @@ module AlgoSDK
     end
 
     def self.build_req(method, uri_obj, req_data, headers)
-      Net::HTTP.start(uri_obj.host, uri_obj.port) do |http|
+      Net::HTTP.start(uri_obj.host, uri_obj.port, use_ssl: uri_obj.host.include?("https") ? true : false) do |http|
         if method == "GET"
           request = Net::HTTP::Get.new(uri_obj, headers)
         elsif method == "POST"
@@ -43,7 +43,7 @@ module AlgoSDK
 
         response = http.request request # Net::HTTPResponse object
 
-        JSON.parse(response.body)
+        response
       end
     end
 
@@ -270,7 +270,7 @@ module AlgoSDK
       )
     end
 
-    def send_raw_txn(txn, **kwargs)
+    def send_raw_txn(txn, headers = nil, **kwargs)
       "" "
       Broadcast a signed transaction to the network.
       Sets the default Content-Type header, if not previously set.
@@ -281,6 +281,105 @@ module AlgoSDK
           str: transaction ID
       " ""
       #TODO!
+      txn_headers = !headers.nil? ? headers : Hash.new
+
+      if !txn_headers.has_key?("Content-Type") && !txn_headers.has_key?("content-type")
+        txn_headers["Content-Type"] = "application/x-binary"
+      end
+
+      decoded_txn = Base64.decode64(txn)
+      req = "/transactions"
+      algod_request("POST", req, data = decoded_txn, headers = txn_headers, **kwargs)["txId"]
+    end
+
+    def send_txn(txn, **kwargs)
+      "" "
+      Broadcast a signed transaction object to the network.
+      Args:
+          txn (SignedTransaction or MultisigTransaction): transaction to send
+          request_header (dict, optional): additional header for request
+      Returns:
+          str: transaction ID
+      " ""
+      # TODO! have to build out all txns
+      # self.class.send_raw_txn(encoding.msgpack_encode(txn), **kwargs)
+    end
+
+    def send_txns(txns, **kwargs)
+      "" "
+      Broadcast list of a signed transaction objects to the network.
+      Args:
+          txns (SignedTransaction[] or MultisigTransaction[]):
+              transactions to send
+          request_header (dict, optional): additional header for request
+      Returns:
+          str: first transaction ID
+      " ""
+      serialized = Array.new
+      for txn in txns
+        serialized.append(Base64.decode64(msgpack_encode(txn)))
+      end
+      return self.send_raw_txn(Base64.encode64(serialized.join("")), **kwargs)
+    end
+
+    def block_info(round_num = nil, **kwargs)
+      "" "
+      Return block information.
+      Args:
+          round_num (int, optional): the round to retrieve block_info for.
+      " ""
+      if round_num.nil?
+        raise AlgoSDK::Errors::UnderspecifiedRoundError.new("Must specify `round_num` arg.")
+      elsif !round_num.is_a?(Integer)
+        raise AlgoSDK::Errors::IncorrectArgumentType.new("`round_num` must be an integer, you passed #{round_num}.")
+      end
+      req = "/block/" + specify_round_string(round_num)
+      algod_request("GET", req, **kwargs)
+    end
+
+    def block_raw(round_num = nil, **kwargs)
+      "" "
+      Return decoded raw block as the network sees it.
+      
+      Args:
+          round_num (int, optional): the round to retrieve block_info for.
+      " ""
+      if round_num.nil?
+        raise AlgoSDK::Errors::UnderspecifiedRoundError.new("Must specify `round_num` arg.")
+      end
+
+      p kwargs
+
+      if !kwargs[:headers].has_key?("Content-Type") && !kwargs[:headers].has_key?("content-type")
+        kwargs[:headers]["Content-Type"] = "application/x-algorand-block-v1"
+      end
+
+      req = "/blocks/" + specify_round_string(round_num)
+      # query = { :raw => 1 }
+      query = {}
+      kwargs["raw_response"] = true
+      response = algod_request("GET", req, query, **kwargs)
+      block_type = "application/x-algorand-block-v1"
+      p response.to_hash.inspect
+      content_type = response["Content-Type"]
+
+      if content_type != block_type
+        raise AlgoSDK::Errors::HeadersError.new("expected 'Content-Type: #{block_type}' but got #{content_type}")
+      end
+      #TODO: return msgpack.loads(response.read())
+      "HEre..."
+    end
+
+    private
+
+    def specify_round_string(round_num)
+      "" "
+      Return the round number specified in either 'block' or 'round_num'.
+      Args:
+          block (int): user specified variable
+          round_num (int): user specified variable
+      " ""
+      round_num.to_s
     end
   end
 end
@@ -290,7 +389,9 @@ end
 # pk = account_data.shift
 # raise "Encoding working incorrectly" unless pk = address_from_pk(pk)
 
-@algo = AlgoSDK::AlgodClient.new("1e506580e964a022db4a5eb64e561240718afa6bd65e9ef1d5a2f72fe62f3775", "http://127.0.0.1:8080", { :hi => "This is message" })
+# @algo = AlgoSDK::AlgodClient.new("1e506580e964a022db4a5eb64e561240718afa6bd65e9ef1d5a2f72fe62f3775", "http://127.0.0.1:8080", { :hi => "This is message" })
+@algo = AlgoSDK::AlgodClient.new("", "https://testnet.algoexplorerapi.io", headers = { 'User-Agent': "DanM" })
+
 # @algo.algod_request("GET", "/status")
 # @algo.algod_request("GET", "/accounts/MXIGC5RCUFNFV2TB7ODAGQ4H7VC75DCH2SBBG7ATWPLB4YHBO7FFPNVLJ4")
 # p @algo.status_after_block(1000)
@@ -303,5 +404,7 @@ end
 # p @algo.list_assets()
 # p @algo.txn_info("MXIGC5RCUFNFV2TB7ODAGQ4H7VC75DCH2SBBG7ATWPLB4YHBO7FFPNVLJ4", 100)
 # p @algo.pending_transaction_info("100000")
-# p @algo.suggested_params_as_object().json
+# p @algo.suggested_params_as_object().hashify
 # p @algo.suggested_params_as_object()
+# p @algo.send_txns(["adfgdg", "aewtghb"])
+# p @algo.block_raw(100, headers: { 'User-Agent': "DanM" })
