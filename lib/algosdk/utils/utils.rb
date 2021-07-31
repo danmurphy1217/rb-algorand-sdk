@@ -1,3 +1,4 @@
+# typed: true
 module AlgoSDK
   class Utils
     def self.stringify_round_info(block_num, round_num)
