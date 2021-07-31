@@ -1,9 +1,11 @@
+# typed: true
 require_relative "error"
 require_relative "encoding"
 require_relative "utils/constants"
 require_relative "utils/utils"
 require_relative "transaction"
 require_relative "account"
+require_relative "future/txn"
 
 require "base64"
 require "net/http"
@@ -133,13 +135,160 @@ module AlgoSDK
       req = "/ledger/supply"
       return algod_request("GET", req, **kwargs)
     end
+
+    def transactions_by_address(address, first = nil, last = nil,
+                                         limit = nil, from_date = nil, to_date = nil,
+                                **kwargs)
+      "" "
+        Return transactions for an address. If indexer is not enabled, you can
+        search by date and you do not have to specify first and last rounds.
+        Args:
+            address (str): account public key
+            first (int, optional): no transactions before this block will be
+                returned
+            last (int, optional): no transactions after this block will be
+                returned; defaults to last round
+            limit (int, optional): maximum number of transactions to return;
+                default is 100
+            from_date (str, optional): no transactions before this date will be
+                returned; format YYYY-MM-DD
+            to_date (str, optional): no transactions after this date will be
+                returned; format YYYY-MM-DD
+        " ""
+      query = Hash.new
+      if !first.nil?
+        query["firstRound"] = first
+      end
+      if !last.nil?
+        query["lastRound"] = last
+      end
+      if !limit.nil?
+        query["max"] = limit
+      end
+      if !to_date.nil?
+        query["toDate"] = to_date
+      end
+      if !from_date.nil?
+        query["fromDate"] = from_date
+      end
+      req = "/account/" + address + "/transactions"
+      algod_request("GET", req, params = query, **kwargs)
+    end
+
+    def account_info(address, **kwargs)
+      "" "
+        Return account information for an address.
+        Args:
+            address (str): account public key
+        " ""
+      req = "/account/" + address
+      algod_request("GET", req, **kwargs)
+    end
+
+    def asset_info(asset_id)
+      "" "
+        Return asset information for an asset id.
+
+        Args:
+          asset_id (str): asset id
+      " ""
+      req = "/assets/" + asset_id
+      algod_request("GET", req)
+    end
+
+    def list_assets(max_index = nil, max_assets = nil, **kwargs)
+      "" "
+        Return a list of assets of length == max_assets with IDs <= max_index.
+
+        Args:
+          max_index (int): maximum asset index to include
+          max_assets (int): maximum number of assets to return. Defaults to 100.
+      " ""
+      query = Hash.new
+      query["assetIdx"] = max_index.nil? ? 0 : max_index
+      query["max"] = max_assets.nil? ? 100 : max_assets
+
+      req = "/assets"
+      algod_request("GET", req, params = query, **kwargs)
+    end
+
+    def txn_info(address, txn_id, **kwargs)
+      "" "
+      Return transaction information.
+      Args:
+          address (str): account public key
+          transaction_id (str): transaction ID
+      " ""
+      req = "/account/" + address + "/transaction/" + txn_id.to_s
+      algod_request("GET", req, **kwargs)
+    end
+
+    def pending_transaction_info(txn_id, **kwargs)
+      "" "
+      Return transaction information for a pending transaction.
+      Args:
+          transaction_id (str): transaction ID
+      " ""
+      req = "/transactions/pending/" + txn_id.to_s
+      return algod_request("GET", req, **kwargs)
+    end
+
+    def transaction_by_id(txn_id, **kwargs)
+      "" "
+      Return transaction information; only works if indexer is enabled.
+      Args:
+          transaction_id (str): transaction ID
+      " ""
+      req = "/transaction/" + txn_id.to_s
+      return algod_request("GET", req, **kwargs)
+    end
+
+    def suggested_fee(**kwargs)
+      "" "Return suggested transaction fee." ""
+      req = "/transactions/fee"
+      return algod_request("GET", req, **kwargs)
+    end
+
+    def suggested_params(**kwargs)
+      "" "Return suggested transaction parameters." ""
+      req = "/transactions/params"
+      return algod_request("GET", req, **kwargs)
+    end
+
+    def suggested_params_as_object(**kwargs)
+      "" "Return suggested transaction parameters." ""
+      req = "/transactions/params"
+      res = algod_request("GET", req, **kwargs)
+
+      AlgoSDK::SuggestedParams.new(
+        res["fee"],
+        res["last-round"],
+        res["last-round"] + 1000,
+        res["genesis-hash"],
+        res["genesis-id"],
+        false
+      )
+    end
+
+    def send_raw_txn(txn, **kwargs)
+      "" "
+      Broadcast a signed transaction to the network.
+      Sets the default Content-Type header, if not previously set.
+      Args:
+          txn (str): transaction to send, encoded in base64
+          request_header (dict, optional): additional header for request
+      Returns:
+          str: transaction ID
+      " ""
+      #TODO!
+    end
   end
 end
 
-account_data = generate_account()
-addr = account_data.shift
-pk = account_data.shift
-raise "Encoding working incorrectly" unless pk = address_from_pk(pk)
+# account_data = generate_account()
+# addr = account_data.shift
+# pk = account_data.shift
+# raise "Encoding working incorrectly" unless pk = address_from_pk(pk)
 
 @algo = AlgoSDK::AlgodClient.new("1e506580e964a022db4a5eb64e561240718afa6bd65e9ef1d5a2f72fe62f3775", "http://127.0.0.1:8080", { :hi => "This is message" })
 # @algo.algod_request("GET", "/status")
@@ -148,3 +297,11 @@ raise "Encoding working incorrectly" unless pk = address_from_pk(pk)
 # p @algo.pending_transactions(1)
 # p @algo.versions()
 # p @algo.ledger_supply()
+# p @algo.transactions_by_address("MXIGC5RCUFNFV2TB7ODAGQ4H7VC75DCH2SBBG7ATWPLB4YHBO7FFPNVLJ4")
+# p @algo.account_info("MXIGC5RCUFNFV2TB7ODAGQ4H7VC75DCH2SBBG7ATWPLB4YHBO7FFPNVLJ4")
+# p @algo.asset_info("31566704")
+# p @algo.list_assets()
+# p @algo.txn_info("MXIGC5RCUFNFV2TB7ODAGQ4H7VC75DCH2SBBG7ATWPLB4YHBO7FFPNVLJ4", 100)
+# p @algo.pending_transaction_info("100000")
+# p @algo.suggested_params_as_object().json
+# p @algo.suggested_params_as_object()
