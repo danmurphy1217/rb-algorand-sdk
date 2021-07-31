@@ -36,7 +36,7 @@ module AlgoSDK
       @min_fee = min_fee
     end
 
-    def json
+    def hashify
       jsonified_cls = Hash.new
 
       instance_variables.each do |instance_variable|
