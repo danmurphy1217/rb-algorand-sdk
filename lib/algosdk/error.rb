@@ -1,3 +1,4 @@
+# typed: true
 module AlgoSDK
   module Errors
     class AlgodRequestError < StandardError

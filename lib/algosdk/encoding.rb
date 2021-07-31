@@ -1,3 +1,4 @@
+# typed: true
 def checksum(addr)
   "" "
     Compute the checksum of size checkSumLenBytes for the address.
