@@ -14,5 +14,29 @@ module AlgoSDK
         super(message)
       end
     end
+
+    class UnderspecifiedRoundError < StandardError
+      def initialize(message)
+        super(message)
+      end
+    end
+
+    class IncorrectArgumentType < StandardError
+      def initialize(message)
+        super(message)
+      end
+    end
+
+    class HeadersError < StandardError
+      def initialize(message)
+        super(message)
+      end
+    end
+
+    class WrongKeyLengthError < StandardError
+      def initialize(message)
+        super(message)
+      end
+    end
   end
 end
