@@ -33,12 +33,13 @@ module AlgoSDK
       @headers = headers
     end
 
-    def self.build_req(method, uri_obj, _req_data, headers)
+    def self.build_req(method, uri_obj, req_data, headers)
       Net::HTTP.start(uri_obj.host, uri_obj.port, use_ssl: uri_obj.scheme == 'https') do |http|
         if method == 'GET'
           request = Net::HTTP::Get.new(uri_obj, headers)
         elsif method == 'POST'
           request = Net::HTTP::Post.new(uri_obj, headers)
+          request.body = req_data.is_a?(String) ? req_data : URI.encode_www_form(req_data)
         end
 
         response = http.request request # Net::HTTPResponse object
@@ -47,7 +48,7 @@ module AlgoSDK
       end
     end
 
-    def algod_request(method, requrl, params = nil, data = nil, headers = nil, _raw_response = false)
+    def algod_request(method, requrl, params: nil, data: nil, headers: nil, _raw_response: false)
       final_headers_for_req = {}
 
       unless @headers.empty?
@@ -128,9 +129,9 @@ module AlgoSDK
           max_txns (int): maximum number of transactions to return;
               if max_txns is 0, return all pending transactions
       " ''
-      query = { "max": max_transactions }
+      final_kwargs = build_kwargs('params', { "max": max_transactions }, kwargs)
       req = '/transactions/pending'
-      algod_request('GET', req, params = query, **kwargs)
+      algod_request('GET', req, **final_kwargs)
     end
 
     def versions(**kwargs)
@@ -239,7 +240,8 @@ module AlgoSDK
       Args:
           transaction_id (str): transaction ID
       " ''
-      req = '/transactions/pending/' + txn_id.to_s
+      req = '/transactions/pending/' + txn_id
+
       algod_request('GET', req, **kwargs)
     end
 
@@ -304,29 +306,7 @@ module AlgoSDK
       )
     end
 
-    def send_raw_txn(txn, headers = nil, **kwargs)
-      '' "
-      Broadcast a signed transaction to the network.
-      Sets the default Content-Type header, if not previously set.
-      Args:
-          txn (str): transaction to send, encoded in base64
-          request_header (dict, optional): additional header for request
-      Returns:
-          str: transaction ID
-      " ''
-      # TODO!
-      txn_headers = !headers.nil? ? headers : {}
-
-      if !txn_headers.has_key?('Content-Type') && !txn_headers.has_key?('content-type')
-        txn_headers['Content-Type'] = 'application/x-binary'
-      end
-
-      decoded_txn = Base64.decode64(txn)
-      req = '/transactions'
-      algod_request('POST', req, data = decoded_txn, headers = txn_headers, **kwargs)['txId']
-    end
-
-    def send_txn(_txn, **_kwargs)
+    def send_txn(txn, **kwargs)
       '' "
       Broadcast a signed transaction object to the network.
       Args:
@@ -336,7 +316,7 @@ module AlgoSDK
           str: transaction ID
       " ''
       # TODO! have to build out all txns
-      # self.class.send_raw_txn(encoding.msgpack_encode(txn), **kwargs)
+      send_raw_txn(msgpack_encode(txn), **kwargs)
     end
 
     def send_txns(txns, **kwargs)
@@ -351,9 +331,10 @@ module AlgoSDK
       " ''
       serialized = []
       txns.each do |txn|
-        serialized.append(Base64.decode64(msgpack_encode(txn)))
+        serialized.append(msgpack_encode(txn))
       end
-      send_raw_txn(Base64.encode64(serialized.join('')), **kwargs)
+
+      send_raw_txn(serialized.join(''), **kwargs)
     end
 
     def block_info(round_num = nil, **kwargs)
@@ -418,14 +399,14 @@ module AlgoSDK
 
     def catchup_to(catchpoint, **kwargs)
       # TODO
-      """Given a catchpoint, it starts catching up to this catchpoint"""
+      '''Given a catchpoint, it starts catching up to this catchpoint'''
       req = '/catchup/' + catchpoint
       algod_request('POST', req, **kwargs)
     end
 
     def abort_catchup(catchpoint, **kwargs)
-      # TODO test
-      """Given a catchpoint, it aborts catching up to this catchpoint"""
+      # TODO: test
+      '''Given a catchpoint, it aborts catching up to this catchpoint'''
       req = '/catchup/' + catchpoint
       algod_request('DELETE', req, **kwargs)
     end
@@ -436,26 +417,42 @@ module AlgoSDK
     end
 
     def register_participation_keys_for(address, **kwargs)
-      #TODO: test
+      # TODO: test
       req = '/register-participation-keys/' + address
       algod_request('POST', req, **kwargs)
     end
 
     def shutdown(timeout = nil, **kwargs)
-      """
+      ''"
       Special management endpoint to shutdown the node
       Optionally provide a timeout parameter to indicate
       that the node should begin shutting down after a number
       of seconds.
-      """
-      #TODO test
-      if timeout.nil?
-        req = "/shutdown"
-      else
-        req = "/shutdown" + "?timeout=#{timeout}"
-      end
+      "''
+      # TODO: test
+      req = if timeout.nil?
+              '/shutdown'
+            else
+              '/shutdown' + "?timeout=#{timeout}"
+            end
 
-      algod_request('POST', req)
+      algod_request('POST', req, **kwargs)
+    end
+
+    def compile_teal(teal_binary_plaintext, **kwargs)
+      # TODO: test
+      req = '/teal/compile'
+      final_kwargs = build_kwargs('data', { source: teal_binary_plaintext }, kwargs)
+
+      algod_request('POST', req, **final_kwargs)
+    end
+
+    def test_teal(teal_binary_plaintext, **kwargs)
+      # TODO: test
+      req = '/teal/dryrun'
+      final_kwargs = build_kwargs('data', { source: teal_binary_plaintext }, kwargs)
+
+      algod_request('POST', req, **final_kwargs)
     end
 
     private
@@ -468,6 +465,43 @@ module AlgoSDK
           round_num (int): user specified variable
       " ''
       round_num.to_s
+    end
+
+    def build_kwargs(keyword, value, kwargs)
+      if kwargs.has_key?(keyword.to_sym)
+        kwargs[keyword.to_sym].update(value)
+      else
+        kwargs[keyword.to_sym] = {}
+        kwargs[keyword.to_sym] = value
+      end
+
+      kwargs
+    end
+
+    def send_raw_txn(encoded_txn, **kwargs)
+      '' "
+      Broadcast a signed transaction to the network.
+      Sets the default Content-Type header, if not previously set.
+      Args:
+          txn (str): transaction to send, encoded in base64
+          request_header (dict, optional): additional header for request
+      Returns:
+          str: transaction ID
+      " ''
+      # TODO!
+      txn_headers = !kwargs['headers'].nil? ? kwargs['headers'] : {}
+
+      if !txn_headers.has_key?('Content-Type') && !txn_headers.has_key?('content-type')
+        txn_headers['Content-Type'] = 'application/x-binary'
+      end
+
+      decoded_txn = Base64.decode64(encoded_txn)
+      kwargs_with_data = build_kwargs('data', decoded_txn, kwargs)
+      final_kwargs = build_kwargs('headers', txn_headers, kwargs_with_data)
+
+      req = '/transactions'
+      # algod_request('POST', req, **final_kwargs)['txId']
+      algod_request('POST', req, **final_kwargs)
     end
   end
 end
