@@ -1,3 +1,5 @@
+require_relative 'encoding'
+
 module AlgoSDK
   class Bid
     def initialize(bidder, bid_currency, limit_price, bid_id, auction_key, auction_id)
@@ -9,15 +11,26 @@ module AlgoSDK
       @auction_id = auction_id
     end
 
-    def dictify()
+    def hashify()
       {
         "aid" => @auction_id,
-        "auc" => @auction_key, #TODO: decode this
-        "bidder" => @bidder, #TODO: decode this
+        "auc" => decode_address(@auction_key),
+        "bidder" => decode_address(@bidder),
         "cur" => @bid_currency,
         "id" => @bid_id,
         "price" => @limit_price,
       }
+    end
+
+    def sign(private_key)
+      """
+      Sign a bid.
+      Args:
+          private_key (str): private_key of the bidder
+      Returns:
+          SignedBid: signed bid with the signature
+      """
+      temp = msgpack_encode(self)
     end
   end
 

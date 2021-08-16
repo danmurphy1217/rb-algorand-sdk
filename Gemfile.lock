@@ -1,21 +1,48 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    activesupport (5.2.6)
+      concurrent-ruby (~> 1.0, >= 1.0.2)
+      i18n (>= 0.7, < 2)
+      minitest (~> 5.1)
+      tzinfo (~> 1.1)
     base64 (0.1.0)
+    concurrent-ruby (1.1.9)
     ffi (1.15.3)
+    i18n (1.8.10)
+      concurrent-ruby (~> 1.0)
     json (2.5.1)
+    minitest (5.14.4)
+    msgpack (1.4.2)
     openssl (2.2.0)
     rbnacl (7.1.1)
       ffi
+    sorbet (0.5.6537)
+      sorbet-static (= 0.5.6537)
+    sorbet-static (0.5.6537-universal-darwin-14)
+    sorbet-static (0.5.6537-universal-darwin-15)
+    sorbet-static (0.5.6537-universal-darwin-16)
+    sorbet-static (0.5.6537-universal-darwin-17)
+    sorbet-static (0.5.6537-universal-darwin-18)
+    sorbet-static (0.5.6537-universal-darwin-19)
+    sorbet-static (0.5.6537-universal-darwin-20)
+    sorbet-static (0.5.6537-x86_64-linux)
+    thread_safe (0.3.6)
+    tzinfo (1.2.9)
+      thread_safe (~> 0.1)
 
 PLATFORMS
   arm64-darwin-20
+  ruby
 
 DEPENDENCIES
+  activesupport (~> 5.0, >= 5.0.0.1)
   base64
   json
+  msgpack
   openssl
   rbnacl
+  sorbet
 
 BUNDLED WITH
    2.2.3
