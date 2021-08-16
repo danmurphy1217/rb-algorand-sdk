@@ -1,17 +1,8 @@
 # typed: true
 require_relative "utils/constants"
-require "activesupport"
+require "active_support/all"
 require "msgpack"
-
-def checksum(addr)
-  "" "
-    Compute the checksum of size checkSumLenBytes for the address.
-    addr (bytes): address in bytes
-    Returns => bytes: checksum of the address
-    " ""
-  digested_chksum = Digest::SHA512.digest(addr)
-  return digested_chksum[-32...]
-end
+require "digest"
 
 def msgpack_encode(obj)
   "" "
@@ -37,6 +28,7 @@ def msgpack_encode(obj)
   end
 
   ordered_hash = order_hash(hashed_obj)
+
   Base64.encode64(MessagePack.pack(ordered_hash))
 end
 
@@ -53,10 +45,10 @@ def order_hash(hash)
   ordered_hash = ActiveSupport::OrderedHash.new
   sorted_keys = hash.keys.sort
   sorted_keys.each do |key|
-    if hash[key].instance_of?(Hash)
-      ordered_hash[key] = order_hash(hash[key])
+    if hash[key.to_s].instance_of?(Hash)
+      ordered_hash[key.to_s] = order_hash(hash[key])
     elsif hash[key]
-      ordered_hash[key]
+      ordered_hash[key.to_s] = hash[key]
     end
 
     ordered_hash
@@ -123,19 +115,22 @@ def is_valid_address(addr)
   Returns:
       bool: whether or not the address is valid
   " ""
-  #TODO!
-  # if not addr.is_a?(String)
-  #     return false
-  # end
-  # if not len(_undo_padding(addr)) == constants.address_len:
-  #     return False
-  # try:
-  #     decoded = decode_address(addr)
-  #     if isinstance(decoded, str):
-  #         return False
-  #     return True
-  # except:
-  #     return False
+  if not addr.is_a?(String)
+    return false
+  end
+  if not addr.length == Constants::ADDRESS_LEN
+    return false
+  end
+
+  begin
+    decoded_addr = decode_address(addr)
+    if decoded_addr.is_a?(String)
+      return false
+    end
+    return true
+  rescue
+    return false
+  end
 end
 
 def decode_address(address)
@@ -150,10 +145,33 @@ def decode_address(address)
     return addr
   end
   if not address.length == Constants::ADDRESS_LEN
-    raise AlgoSDK::Error::WrongKeyLengthError.new("Incorrect public key provide: length must be #{Constants::ADDRESS_LEN}")
+    raise AlgoSDK::Error::WrongKeyLengthError.new("Incorrect public key provided: length must be #{Constants::ADDRESS_LEN}")
   end
   # TODO: decode address
+  Base32.decode(enc)
 end
 
 def encode_address(address_bytes)
+  # TODO: Implement
+end
+
+def checksum(addr)
+  "" "
+    Compute the checksum of size checkSumLenBytes for the address.
+    addr (bytes): address in bytes
+    Returns => bytes: checksum of the address
+    " ""
+  digested_chksum = Digest::SHA512.digest(addr)
+  return digested_chksum[-32...]
+end
+
+def correct_padding(a)
+  if a.length % 8 == 0
+    return a
+  end
+  return a + "=" * (8 - a.length % 8)
+end
+
+def undo_padding(a)
+  a.gsub('=', '')
 end
