@@ -61,7 +61,7 @@ module AlgoSDK
       uri.query = URI.encode_www_form(params) if params
 
       begin
-        request = self.class.build_req(method, uri, data, final_headers_for_req)
+        request = self.class.build_req(method, uri, data.to_json, final_headers_for_req)
       rescue StandardError
         raise AlgoSDK::Errors::AlgodRequestError, @kmd_address + requrl
       end
@@ -136,7 +136,7 @@ module AlgoSDK
       kmd_request('POST', req, **final_kwargs)
     end
 
-    def delete_multisig_preimage_information(address, wallet_handle_token, wallet_password)
+    def delete_multisig_preimage_information(address, wallet_handle_token, wallet_password, **kwargs)
       '''Deletes multisig preimage information for the passed address from the wallet.'''
       req = '/multisig'
 
@@ -145,6 +145,83 @@ module AlgoSDK
                                     'wallet_password' => wallet_password }, kwargs)
 
       kmd_request('DELETE', req, **final_kwargs)
+    end
+
+    def export_multisig_preimage_information(address, wallet_handle_token, **kwargs)
+      '''
+        Given a multisig address whose preimage this wallet stores, returns
+        the information used to generate the address, including public keys,
+        threshold, and multisig version.
+      '''
+      req = '/multisig/export'
+
+      final_kwargs = build_kwargs('data',
+                                  { 'address' => address, 'wallet_handle_token' => wallet_handle_token }, kwargs)
+
+      kmd_request('POST', req, **final_kwargs)
+    end
+
+    def import_multisig_preimage_information(multisig_version, public_key_arr, threshold, _wallet_handle_token, **kwargs)
+      '''
+        Given a multisig address whose preimage this wallet stores, returns
+        the information used to generate the address, including public keys,
+        threshold, and multisig version.
+      '''
+      req = '/multisig/import'
+
+      final_kwargs = build_kwargs('data',
+                                  { 'multisig_version' => multisig_version, 'pks' => public_key_arr,
+                                    'threshold' => threshold, 'wallet_handle_token' => wallet_handle_token }, kwargs)
+
+      kmd_request('POST', req, **final_kwargs)
+    end
+
+    def list_multisig_accounts(wallet_handle_token, **kwargs)
+      '''Lists all of the multisig accounts whose preimages this wallet stores'''
+
+      req = '/multisig/list'
+
+      final_kwargs = build_kwargs('data', { 'wallet_handle_token' => wallet_handle_token }, kwargs)
+
+      kmd_request('POST', req, **final_kwargs)
+    end
+
+    def sign_multisig(_wallet_handle_token, _wallet_password, _public_key, _transaction)
+      '''Sign a multisig transaction.'''
+      req = '/multisig/sign'
+
+      # TODO: yikes
+
+      # build_kwargs('data', { '' => '', '' => '', '' => '' })
+    end
+
+    def sign_multisig_txn
+      # TODO:
+      req = 'multisig/signprogram'
+    end
+
+    def sign_txn
+      # TODO
+      req = '/transaction/sign'
+    end
+
+    def create_wallet(name, password, driver_name = 'sqlite', master_derivation_key = nil, **kwargs)
+      req = '/wallet'
+
+      final_kwargs = build_kwargs('data',
+                                  { 'wallet_driver_name' => driver_name, 'wallet_name' => name, 'wallet_password' => password }, kwargs)
+
+      !master_derivation_key.nil? ? final_kwargs.merge({ 'master_derivation_key' => master_derivation_key }) : nil
+
+      p final_kwargs
+
+      kmd_request('POST', req, **final_kwargs)
+    end
+
+    def get_wallet(**kwargs)
+      req = '/wallets'
+
+      kmd_request('GET', req, **kwargs)
     end
 
     private
