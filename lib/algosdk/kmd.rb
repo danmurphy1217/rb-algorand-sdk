@@ -9,6 +9,8 @@ API_VERSION = '/v1'
 
 module AlgoSDK
   class KmdClient
+    attr_reader :kmd_token, :kmd_address, :headers
+
     def initialize(kmd_token, kmd_address, headers)
       @kmd_token = kmd_token
       @kmd_address = kmd_address
@@ -74,11 +76,11 @@ module AlgoSDK
       JSON.parse(kmd_request('GET', req, **kwargs).body)['versions']
     end
 
-    def generate_key(wallet_handle_token, _display_mnemonic = true, **kwargs)
+    def generate_key(wallet_handle_token, display_mnemonic = true, **kwargs)
       # TODO : test
       req = '/key'
       final_kwargs = build_kwargs('data',
-                                  { 'wallet_handle_token' => wallet_handle_token }, kwargs)
+                                  { 'wallet_handle_token' => wallet_handle_token, 'display_mnemonic' => display_mnemonic }, kwargs)
       kmd_request('POST', req, **final_kwargs)
     end
 
@@ -92,7 +94,7 @@ module AlgoSDK
 
       response = kmd_request('DELETE', req, **final_kwargs)
 
-      response == {}
+      JSON.parse(response) == {}
     end
 
     def export_key(address, wallet_handle_token, wallet_password, **kwargs)
@@ -144,7 +146,9 @@ module AlgoSDK
                                   { 'address' => address, 'wallet_handle_token' => wallet_handle_token,
                                     'wallet_password' => wallet_password }, kwargs)
 
-      kmd_request('DELETE', req, **final_kwargs)
+      response = kmd_request('DELETE', req, **final_kwargs)
+
+      JSON.parse(response) == {}
     end
 
     def export_multisig_preimage_information(address, wallet_handle_token, **kwargs)
@@ -161,12 +165,13 @@ module AlgoSDK
       kmd_request('POST', req, **final_kwargs)
     end
 
-    def import_multisig_preimage_information(multisig_version, public_key_arr, threshold, _wallet_handle_token, **kwargs)
+    def import_multisig_preimage_information(multisig_version, public_key_arr, threshold, wallet_handle_token, **kwargs)
       '''
         Given a multisig address whose preimage this wallet stores, returns
         the information used to generate the address, including public keys,
         threshold, and multisig version.
       '''
+      # TODO: I think I need to encode wallet addr to get the public key
       req = '/multisig/import'
 
       final_kwargs = build_kwargs('data',
@@ -206,19 +211,11 @@ module AlgoSDK
     end
 
     def create_wallet(name, password, driver_name = 'sqlite', master_derivation_key = nil, **kwargs)
-      req = '/wallet'
-
-      final_kwargs = build_kwargs('data',
-                                  { 'wallet_driver_name' => driver_name, 'wallet_name' => name, 'wallet_password' => password }, kwargs)
-
-      !master_derivation_key.nil? ? final_kwargs.merge({ 'master_derivation_key' => master_derivation_key }) : nil
-
-      p final_kwargs
-
-      kmd_request('POST', req, **final_kwargs)
+      AlgoSDK::Wallet.new(@kmd_token, @kmd_address, @headers, kwargs, name: name, password: password, driver_name: driver_name,
+                                                                      master_derivation_key: master_derivation_key)
     end
 
-    def get_wallet(**kwargs)
+    def get_wallets(**kwargs)
       req = '/wallets'
 
       kmd_request('GET', req, **kwargs)
@@ -235,6 +232,111 @@ module AlgoSDK
       end
 
       kwargs
+    end
+  end
+
+  class Wallet < KmdClient
+    attr_reader :name, :password, :id
+
+    def initialize(kmd_token, kmd_address, headers)
+      super(kmd_token, kmd_address, headers)
+      # TODO
+    end
+
+    def init(**kwargs)
+      ''"
+      Unlock the wallet and return a wallet handle token that can be used for subsequent
+      operations. These tokens expire periodically and must be renewed.
+      "''
+      token = AlgoSDK::WalletHandleToken.new(@kmd_token, @kmd_address, @headers, kwargs, wallet_id: @id,
+                                                                                         wallet_password: @password)
+      @value = token.value
+
+      @value
+    end
+
+    def create(wallet_name, password, driver_name, master_derivation_key,  **kwargs)
+      req = '/wallet'
+      final_kwargs = build_kwargs('data',
+                                  { 'wallet_driver_name' => driver_name, 'wallet_name' => wallet_name, 'wallet_password' => password }, kwargs)
+
+      !master_derivation_key.nil? ? final_kwargs.merge({ 'master_derivation_key' => master_derivation_key }) : nil
+
+      response = kmd_request('POST', req, **final_kwargs)
+
+      @name = wallet_name
+      @password = password
+
+      if JSON.parse(response)['error'].nil?
+        p "Created Wallet #{@name}"
+        @id = JSON.parse(response)['wallet']['id']
+      else
+        JSON.parse(response)
+      end
+    end
+
+    def info(**kwargs)
+      ''"
+      Returns information about the wallet associated with the passed wallet handle token.
+      Additionally returns expiration information about the token itself.
+      "''
+      req = '/wallet/info'
+      final_kwargs = build_kwargs('data', { 'wallet_handle_token' => @value }, kwargs)
+
+      kmd_request('POST', req, **final_kwargs)
+    end
+
+    def name=(new_name)
+      req = '/wallet/rename'
+      final_kwargs = build_kwargs('data',
+                                  { 'wallet_id' => @id, 'wallet_name' => new_name,
+                                    'wallet_password' => @password }, {})
+
+      response = kmd_request('POST', req, **final_kwargs)
+
+      if JSON.parse(response)["error"].nil?
+        @name = new_name
+        @name
+      else
+        JSON.parse(response)
+      end
+    end
+  end
+
+  class WalletHandleToken < KmdClient
+    attr_reader :value
+
+    def initialize(kmd_token, kmd_address, headers, kwargs, **req_data)
+      super(kmd_token, kmd_address, headers)
+      req = '/wallet/init'
+      final_kwargs = build_kwargs('data', req_data, kwargs)
+
+      p JSON.parse(kmd_request('POST', req, **final_kwargs))
+      @value = JSON.parse(kmd_request('POST', req, **final_kwargs))['wallet_handle_token']
+    end
+
+    def invalidate
+      req = '/wallet/release'
+      final_kwargs = build_kwargs('data', { 'wallet_handle_token' => @value }, {})
+      response = kmd_request('POST', req, **final_kwargs)
+
+      if JSON.parse(response).empty?
+        "Released Token #{value}"
+      else
+        response
+      end
+    end
+
+    def renew
+      req = '/wallet/renew'
+      final_kwargs = build_kwargs('data', { 'wallet_handle_token' => @value }, {})
+      response = kmd_request('POST', req, **final_kwargs)
+
+      if JSON.parse(response)['wallet_handle']['expires_seconds'] == 59
+        "Renewed Token #{@value}"
+      else
+        JSON.parse(response)
+      end
     end
   end
 end
