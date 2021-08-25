@@ -106,7 +106,7 @@ module AlgoSDK
       algod_request('GET', req, **kwargs)
     end
 
-    def status_after_block(block_num = nil, round_num = nil, **kwargs)
+    def status_after_block(block_num: nil, round_num: nil, **kwargs)
       '' "
       Return node status immediately after blockNum.
       Args:
@@ -114,8 +114,9 @@ module AlgoSDK
           round_num (int, optional): alias for block_num; specify one of
               these
       " ''
+      p block_num
       if block_num.nil? && round_num.nil?
-        raise AlgoSDK::Errors::ArgsError, 'Invalid input, either `block_nun` or `round_num` is required'
+        raise AlgoSDK::Errors::ArgsError, 'Invalid input, either `block_num` or `round_num` is required'
       end
 
       req = '/status/wait-for-block-after/' + Utils.stringify_round_info(block_num, round_num)
@@ -146,9 +147,7 @@ module AlgoSDK
       algod_request('GET', req, **kwargs)
     end
 
-    def transactions_by_address(address, first = nil, last = nil,
-                                limit = nil, from_date = nil, to_date = nil,
-                                **kwargs)
+    def pending_transactions_by_address(address, format: nil, max: nil, **kwargs)
       '' "
         Return transactions for an address. If indexer is not enabled, you can
         search by date and you do not have to specify first and last rounds.
@@ -166,16 +165,14 @@ module AlgoSDK
                 returned; format YYYY-MM-DD
         " ''
       query = {}
-      query['firstRound'] = first unless first.nil?
-      query['lastRound'] = last unless last.nil?
-      query['max'] = limit unless limit.nil?
-      query['toDate'] = to_date unless to_date.nil?
-      query['fromDate'] = from_date unless from_date.nil?
-      req = '/accounts/' + address + '/transactions'
-      algod_request('GET', req, params = query, **kwargs)
+      query['format'] = !format.nil? || ['json', 'msgpack'].include?(format) ? format : 'json'
+      query['max'] = !max.nil? ? max : 0
+
+      req = '/accounts/' + address + '/transactions/pending'
+      algod_request('GET', req, params: query, **kwargs)
     end
 
-    def account_info(address, **kwargs)
+    def get_account(address, **kwargs)
       '' "
         Return account information for an address.
         Args:
@@ -185,53 +182,16 @@ module AlgoSDK
       algod_request('GET', req, **kwargs)
     end
 
-    def asset_info(asset_id)
+    def get_asset(asset_id)
       '' "
-        Return asset information for an asset id.
+      Get asset information for `asset_id`
 
-        Args:
-          asset_id (str): asset id
+      Given a asset id, it returns asset information
+      including creator, name, total supply and special
+      addresses.
       " ''
-      req = '/assets/' + asset_id
+      req = '/assets/' + asset_id.to_s
       algod_request('GET', req)
-    end
-
-    def list_assets(max_index = nil, max_assets = nil, **kwargs)
-      '' "
-        Return a list of assets of length == max_assets with IDs <= max_index.
-
-        Args:
-          max_index (int): maximum asset index to include
-          max_assets (int): maximum number of assets to return. Defaults to 100.
-      " ''
-      query = {}
-      query['assetIdx'] = max_index.nil? ? 0 : max_index
-      query['max'] = max_assets.nil? ? 100 : max_assets
-
-      req = '/assets'
-      algod_request('GET', req, params = query, **kwargs)
-    end
-
-    def txn_info(address, txn_id, **kwargs)
-      '' "
-      Return transaction information.
-      Args:
-          address (str): account public key
-          transaction_id (str): transaction ID
-      " ''
-      req = '/accounts/' + address + '/transaction/' + txn_id.to_s
-      algod_request('GET', req, **kwargs)
-    end
-
-    def pending_transactions_for_account(address, **kwargs)
-      '' "
-      Return transaction information.
-      Args:
-          address (str): account public key
-          transaction_id (str): transaction ID
-      " ''
-      req = '/accounts/' + address + '/transactions/pending'
-      algod_request('GET', req, **kwargs)
     end
 
     def info_for_pending_transaction(txn_id, **kwargs)
@@ -245,16 +205,6 @@ module AlgoSDK
       algod_request('GET', req, **kwargs)
     end
 
-    def transaction_by_id(txn_id, **kwargs)
-      '' "
-      Return transaction information; only works if indexer is enabled.
-      Args:
-          transaction_id (str): transaction ID
-      " ''
-      req = '/transaction/' + txn_id.to_s
-      algod_request('GET', req, **kwargs)
-    end
-
     def get_application(application_id, **kwargs)
       ''"
       Get application information for `application_id`
@@ -263,25 +213,7 @@ module AlgoSDK
       including creator, approval and clear programs, global and
       local schemas, and global state.
       "''
-      req = '/applications/' + application_id
-      algod_request('GET', req, **kwargs)
-    end
-
-    def get_asset(asset_id, **kwargs)
-      ''"
-      Get asset information for `asset_id`
-
-      Given a asset id, it returns asset information
-      including creator, name, total supply and special
-      addresses.
-      "''
-      req = '/assets/' + asset_id
-      algod_request('GET', req, **kwargs)
-    end
-
-    def suggested_fee(**kwargs)
-      '' 'Return suggested transaction fee.' ''
-      req = '/transactions/fee'
+      req = '/applications/' + application_id.to_s
       algod_request('GET', req, **kwargs)
     end
 
@@ -294,14 +226,15 @@ module AlgoSDK
     def suggested_params_as_object(**kwargs)
       '' 'Return suggested transaction parameters.' ''
       req = '/transactions/params'
-      res = algod_request('GET', req, **kwargs)
+      res = algod_request('GET', req, **kwargs).body
+      json_res = JSON.parse(res)
 
       AlgoSDK::SuggestedParams.new(
-        res['fee'],
-        res['last-round'],
-        res['last-round'] + 1000,
-        res['genesis-hash'],
-        res['genesis-id'],
+        json_res['fee'],
+        json_res['last-round'],
+        json_res['last-round'].to_i + 1000,
+        json_res['genesis-hash'],
+        json_res['genesis-id'],
         false
       )
     end
