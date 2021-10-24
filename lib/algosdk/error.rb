@@ -38,5 +38,14 @@ module AlgoSDK
         super(message)
       end
     end
+
+    class GenericWalletRequestError < StandardError
+      def initialize(error, name)
+        @error = error
+        @name = name
+        @message = "The following error occurred:\nRequest Response: #{error} \nWallet Name: #{name}"
+        super(@message)
+      end
+    end
   end
 end
