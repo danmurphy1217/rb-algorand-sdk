@@ -75,7 +75,10 @@ module AlgoSDK
       req = "/versions"
       JSON.parse(kmd_request("GET", req, **kwargs).body)["versions"]
     end
-
+    # TODO: replace all of these functions with abstracted calls to the Key class.
+    # (1) create an instantiated key class object and then use the corresponding class method to perform the action
+    # (2) return result
+    # (3) test
     def generate_key(wallet_handle_token, display_mnemonic = false, **kwargs)
       req = "/key"
       final_kwargs = build_kwargs("data",
@@ -364,18 +367,41 @@ module AlgoSDK
     end
 
     def create()
+      req = "/key"
+      final_kwargs = build_kwargs("data",
+                                     { "wallet_handle_token" => wallet_handle_token, "display_mnemonic" => display_mnemonic }, kwargs)
+      kmd_request("POST", req, **final_kwargs)
     end
 
     def delete()
+        req = "/key"
+        final_kwargs = build_kwargs("data",
+                                    { "address" => address, "wallet_handle_token" => wallet_handle_token, "wallet_password" => wallet_password }, kwargs)
+        
+        response = kmd_request("DELETE", req, **final_kwargs)
+ 
+        JSON.parse(response) == {} 
     end
 
     def export()
+      req = "/key/export"
+      final_kwargs = build_kwargs("data",
+                                  { "address" => address, "wallet_handle_token" => wallet_handle_token, "wallet_password" => wallet_password }, kwargs)
+      kmd_request("POST", req, **final_kwargs)
     end
 
     def import()
+      req = "/key/import"
+      final_kwargs = build_kwargs("data",
+                                  { "private_key" => private_key, "wallet_handle_token" => wallet_handle_token }, kwargs)
+      kmd_request("POST", req, **final_kwargs)
     end
 
     def export_master()
+      req = "/master-key/export"
+      final_kwargs = build_kwargs("data",
+                                  { "wallet_handle_token" => wallet_handle_token, "wallet_password" => wallet_password }, kwargs)
+      kmd_request("POST", req, **final_kwargs)
     end
   end
 end
